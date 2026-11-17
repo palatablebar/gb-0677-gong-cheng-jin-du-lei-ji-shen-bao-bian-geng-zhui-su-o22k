@@ -40,6 +40,15 @@ def create_app():
         p=request.get_json(silent=True) or {}
         if not isinstance(p.get("version"),int): raise DomainError("BAD_VERSION","请提供版本号")
         return store.review(run_id,p["version"],p.get("decision"))
+    @application.post("/api/runs/<run_id>/activate")
+    def activate(run_id):
+        p=request.get_json(silent=True) or {}
+        if not isinstance(p,dict): raise DomainError("BAD_BODY","请求需要对象")
+        project=p.get("project","default")
+        if not isinstance(project,str) or not project.strip(): raise DomainError("BAD_PROJECT","项目标识无效")
+        return store.activate(run_id,project.strip())
+    @application.get("/api/certificates/active")
+    def active_certificate(): return store.certificate_state(request.args.get("project") or "default")
     @application.get("/api/runs/<run_id>/archive")
     def archive(run_id):
         from app.archive import build_archive

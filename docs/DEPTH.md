@@ -30,6 +30,9 @@
 | TRAP-07 | 累计量空值 | 按零冲回 | 隔离缺失 | `app/values.py` | `tests/test_m2.py::test_real_null_not_zero` |
 | TRAP-10 | 分币舍入 | 浮点误差 | 分项量化后净额守恒 | `app/modules/m5_deductions/rules.py` | `tests/test_m5.py::test_fraction_rounds_to_cent` |
 | TRAP-23 | 变更生效边界 | 旧价覆盖 | 按周期选择已批版本 | `app/modules/m3_changes/rules.py` | `tests/test_m3.py::test_effective_boundary` |
+| TRAP-33 | 预付款限额分摊 | 为凑总额挪用他项扣回 | 正项按算额比例摊减到分、合计恰等于上限 | `app/modules/m5_deductions/rules.py` | `tests/test_m5.py::test_no_cross_item_subsidy` |
+| TRAP-34 | 冲回期扣回 | 冲回行被摊减或漏回补 | 负扣回原样回补，仅压减正项使净额落限内 | `app/modules/m5_deductions/rules.py` | `tests/test_m5.py::test_reversal_rebalances_period_total` |
+| TRAP-35 | 签证切换中断 | 半态覆盖旧版、同批重复扣 | 单事务校验切换，失败回滚保留旧版，同批幂等 | `app/store.py` | `tests/test_e2e.py::test_failed_switch_keeps_old_certificate` |
 
 ## 对账规则
 

@@ -27,3 +27,33 @@ def test_module_entrances(client):
         assert client.get("/api/"+slug).status_code==200
         assert client.get("/"+slug).status_code==200
 def test_missing_run_404(client): assert client.get("/api/runs/missing").status_code==404
+def run_with_advance(client,total,recovered):
+    return client.post("/api/runs",json={"sample":"dirty.csv","parameters":{"advance_total":total,"advance_recovered":recovered}}).get_json()
+def test_advance_cap_visible_in_run(client):
+    "预付款只剩最后一笔可扣：本期扣回被压到上限，逐项保留依据"
+    p=run_with_advance(client,"8000","7900")
+    m=p["stages"][4]["metrics"]
+    assert (m["advance_cap"],m["advance_deducted"],m["advance_remaining"])==("100.00","100.00","0.00") and m["capped_rows"]>0
+    assert all("advance_basis" in r for r in p["stages"][4]["rows"])
+def test_activate_switch_and_idempotent(client):
+    p=run_with_advance(client,"8050","0")
+    r=client.post("/api/runs/"+p["run_id"]+"/activate",json={})
+    assert r.status_code==200 and r.get_json()["advance_remaining"]=="0.00"
+    again=client.post("/api/runs/"+p["run_id"]+"/activate",json={}).get_json()
+    assert again["version"]==r.get_json()["version"]
+    assert client.get("/api/certificates/active").get_json()["run_id"]==p["run_id"]
+def test_failed_switch_keeps_old_certificate(client):
+    "新签证前期已扣回与当前剩余不符时切换失败，旧版保留"
+    p1=run_with_advance(client,"8050","0")
+    assert client.post("/api/runs/"+p1["run_id"]+"/activate",json={}).status_code==200
+    p2=run_with_advance(client,"8050","100")
+    assert client.post("/api/runs/"+p2["run_id"]+"/activate",json={}).status_code==409
+    state=client.get("/api/certificates/active").get_json()
+    assert state["run_id"]==p1["run_id"] and state["advance_remaining"]=="0.00" and state["version"]==1
+def test_continuous_switch_succeeds(client):
+    p1=run_with_advance(client,"9000","0")
+    assert client.post("/api/runs/"+p1["run_id"]+"/activate",json={}).status_code==200
+    p2=run_with_advance(client,"9000","950")
+    r=client.post("/api/runs/"+p2["run_id"]+"/activate",json={})
+    assert r.status_code==200 and r.get_json()["version"]==2 and r.get_json()["advance_remaining"]=="0.00"
+def test_activate_missing_run_404(client): assert client.post("/api/runs/missing/activate",json={}).status_code==404
